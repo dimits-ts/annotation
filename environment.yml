@@ -1,0 +1,9 @@
+name: annotation
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python
+  - pandas
+  - numpy
+  - odfpy
