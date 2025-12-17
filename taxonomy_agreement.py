@@ -45,6 +45,11 @@ def analyze(urls: list[str]) -> None:
     for (i, j), score in agreements.items():
         print(f"Annotator {i} vs {j}: {score*100:.3f}%")
 
+    print("Categories associated with `None`:")
+    df = category_none_association(ann_cols)
+
+    print(df.head(10))
+
 
 def dice_coefficient(list1: str, list2: str) -> float:
     set1 = set(x.strip() for x in list1.split(","))
@@ -54,6 +59,60 @@ def dice_coefficient(list1: str, list2: str) -> float:
         return 1.0
 
     return 2 * len(set1 & set2) / (len(set1) + len(set2))
+
+
+def parse_labels(cell: str) -> set[str]:
+    if cell in {"None", "", np.nan}:
+        return set()
+    return set(x.strip() for x in cell.split(","))
+
+
+def category_none_association(
+    annotations: list[pd.Series],
+) -> pd.DataFrame:
+    """
+    For each category, compute how strongly it is associated
+    with other annotators assigning None.
+    """
+    categories = set()
+    for ann in annotations:
+        for cell in ann.dropna():
+            categories |= parse_labels(cell)
+
+    records = []
+
+    n_ann = len(annotations)
+
+    for cat in sorted(categories):
+        none_when_cat = []
+
+        for i in range(n_ann):
+            for j in range(n_ann):
+                if i == j:
+                    continue
+
+                a_i = annotations[i].fillna("None")
+                a_j = annotations[j].fillna("None")
+
+                for x_i, x_j in zip(a_i, a_j):
+                    has_cat = cat in parse_labels(x_i)
+                    is_none_j = x_j == "None"
+
+                    if has_cat:
+                        none_when_cat.append(is_none_j)
+
+        if none_when_cat:
+            p_none_given_cat = np.mean(none_when_cat)
+
+            records.append(
+                {
+                    "category": cat,
+                    "P(None | cat)": p_none_given_cat,
+                    "support": len(none_when_cat),
+                }
+            )
+
+    return pd.DataFrame(records).sort_values("P(None | cat)", ascending=False)
 
 
 def binary_none_agreement(
