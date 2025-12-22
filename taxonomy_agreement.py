@@ -47,10 +47,11 @@ def analyze(dfs: list[pd.DataFrame]) -> None:
     print("Self-consistency:")
     for i, df in enumerate(dfs):
         kappa = self_agreement_kappa(df)
+        dice = self_agreement_dice(df)
         if kappa is None:
             print(f"Annotator {i}: insufficient duplicates")
         else:
-            print(f"Annotator {i}: κ = {kappa:.3f}")
+            print(f"Annotator {i}: κ = {kappa:.3f}, " f"Dice = {dice:.3f}")
 
 
 def load_annotator_dfs(urls: list[str]) -> list[pd.DataFrame]:
@@ -93,6 +94,45 @@ def self_agreement_kappa(df: pd.DataFrame) -> float | None:
         return None
 
     return sklearn.metrics.cohen_kappa_score(y1, y2)
+
+
+def self_agreement_dice(df: pd.DataFrame) -> float | None:
+    """
+    Mean Dice agreement on duplicated comments for a single annotator.
+    """
+    assert "text" in df.columns
+    assert "Categories" in df.columns
+
+    dup_df = df[df.duplicated("text", keep=False)]
+
+    if dup_df.empty:
+        return None
+
+    s1, s2 = [], []
+
+    for _, group in dup_df.groupby("text"):
+        cats = group["Categories"].fillna("None").tolist()
+        if len(cats) < 2:
+            continue
+        s1.append(cats[0])
+        s2.append(cats[1])
+
+    if len(s1) < 2:
+        return None
+
+    return mean_dice_agreement(pd.Series(s1), pd.Series(s2))
+
+
+def mean_dice_agreement(
+    s1: pd.Series,
+    s2: pd.Series,
+) -> float:
+    return (
+        pd.DataFrame({"a1": s1, "a2": s2})
+        .fillna("None")
+        .apply(lambda x: dice_coefficient(x["a1"], x["a2"]), axis=1)
+        .mean()
+    )
 
 
 def dice_coefficient(list1: str, list2: str) -> float:
