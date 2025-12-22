@@ -3,10 +3,10 @@ import urllib
 import time
 
 import pandas as pd
-import pandas.errors
 import numpy as np
 
 WHOW_URLS = [
+    "https://drive.google.com/file/d/1pIbhn_HhHOEAODweW0jYNhZaxyXc5muT",
     "https://docs.google.com/spreadsheets/d/1GTAmX9RxQF7PyKy0asGM1ShjtRbrOUTB",
     "https://docs.google.com/spreadsheets/d/13siGnX-hd3VWSkCOzNs-enVckE30_Yfq",
     "https://docs.google.com/spreadsheets/d/1iX-CwUXMzvqiWvV0ZY8T86uyESRmhNEzuHVTak4CCUQ",
@@ -14,12 +14,13 @@ WHOW_URLS = [
 
 FORA_URLS = [
     "https://drive.google.com/file/d/1R59SvIhWe1rkvKRyeAtebyqJ4dcYNORB",
-    "https://docs.google.com/spreadsheets/d/1JeuLL-BKa3bqHcoJ6JSNNOPffjFhyXqx",
+    "https://docs.google.com/spreadsheets/d/1uhRvODVCU1N19Vz8rp-y7XFMWhupPlA_",
+    "https://docs.google.com/spreadsheets/d/1A699mJ2C5zGBYiH7ATbonq7uZF2lJx0O",
     "https://docs.google.com/spreadsheets/d/1Zc65DZ8PINabwcaaadbDLCx9VF6ecIpEDIaiHl-solQ",
 ]
 
 PARK_URLS = [
-    "https://docs.google.com/spreadsheets/d/1eh9u2Z4LG_WUmzq70UPjJTI8nwwgSfAg",
+    "https://docs.google.com/spreadsheets/d/1siHft7uMPi6pfg6GdITFl-6YUfhTwSOaRIvoEXmuYQQ",
     "https://docs.google.com/spreadsheets/d/1X3ATMStj8cBd6iZ9KZF6cdahhiDbkpJMWu8q5P6tq04",
     "https://docs.google.com/spreadsheets/d/1OIDv86wSsaTJkH37QYB60_TwE_DD_7boh9-_pztusTU",
     "https://docs.google.com/spreadsheets/d/1C-E_TYiHLlKRrC3hmcAYL3eOlhkA8HOPF0SkEP79j2Y",
@@ -159,12 +160,12 @@ def open_sheet(url: str) -> pd.DataFrame:
     cache_bust_url = f"&cache_bust={ts}"
     try:
         # Try native Google Sheets export
-        return pd.read_csv(f"{url}/export?format=csv{cache_bust_url}")[:200]
+        return pd.read_csv(f"{url}/export?format=csv{cache_bust_url}")
     except urllib.error.HTTPError:
         # Fallback: assume Drive-hosted ODS
         file_id = url.split("/d/")[1].split("/")[0]
         download_url = f"https://drive.google.com/uc?export=download&id={file_id}{cache_bust_url}"
-        return pd.read_excel(download_url, engine="odf")[:200]
+        return pd.read_excel(download_url, engine="odf")
 
 
 def main():
