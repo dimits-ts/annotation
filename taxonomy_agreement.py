@@ -4,6 +4,7 @@ import time
 
 import pandas as pd
 import numpy as np
+import sklearn.metrics
 
 WHOW_URLS = [
     "https://drive.google.com/file/d/1pIbhn_HhHOEAODweW0jYNhZaxyXc5muT",
@@ -27,15 +28,8 @@ PARK_URLS = [
 ]
 
 
-def analyze(urls: list[str]) -> None:
-    ann_cols = []
-    for url in urls:
-        try:
-            df = open_sheet(url)
-            if df is not None:
-                ann_cols.append(df.Categories)
-        except Exception as e:
-            print(f"Error when processing url {url}: {e}")
+def analyze(dfs: list[pd.DataFrame]) -> None:
+    ann_cols = [df["Categories"] for df in dfs]
 
     print(
         "Mean pairwise agreement: " f"{dice_annotations(ann_cols) * 100:.3f}%"
@@ -47,9 +41,58 @@ def analyze(urls: list[str]) -> None:
         print(f"Annotator {i} vs {j}: {score*100:.3f}%")
 
     print("Categories associated with `None`:")
-    df = category_none_association(ann_cols)
+    df_assoc = category_none_association(ann_cols)
+    print(df_assoc.head(10))
 
-    print(df.head(10))
+    print("Self-consistency:")
+    for i, df in enumerate(dfs):
+        kappa = self_agreement_kappa(df)
+        if kappa is None:
+            print(f"Annotator {i}: insufficient duplicates")
+        else:
+            print(f"Annotator {i}: κ = {kappa:.3f}")
+
+
+def load_annotator_dfs(urls: list[str]) -> list[pd.DataFrame]:
+    dfs = []
+    for url in urls:
+        try:
+            df = open_sheet(url)
+            if df is not None:
+                dfs.append(df)
+        except Exception as e:
+            print(f"Error when processing url {url}: {e}")
+    return dfs
+
+
+def self_agreement_kappa(df: pd.DataFrame) -> float | None:
+    """
+    Computes Cohen's kappa on duplicated comments for a single annotator.
+    Uses exact match on the Categories column.
+    """
+    assert "text" in df.columns
+    assert "Categories" in df.columns
+
+    dup_df = df[df.duplicated("text", keep=False)].copy()
+
+    if dup_df.empty:
+        return None
+
+    y1, y2 = [], []
+
+    for _, group in dup_df.groupby("text"):
+        cats = group["Categories"].fillna("None").tolist()
+
+        if len(cats) < 2:
+            continue
+
+        y1.append(cats[0])
+        y2.append(cats[1])
+
+    if len(y1) < 2:
+        return None
+
+    return sklearn.metrics.cohen_kappa_score(y1, y2)
 
 
 def dice_coefficient(list1: str, list2: str) -> float:
@@ -173,7 +216,9 @@ def main():
 
     for ds_name, ds_urls in datasets.items():
         print(f"=================== {ds_name} ===================")
-        analyze(urls=ds_urls)
+
+        dfs = load_annotator_dfs(ds_urls)
+        analyze(dfs)
 
 
 if __name__ == "__main__":
